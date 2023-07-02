@@ -6,6 +6,7 @@ namespace HITs.Internship.API.Data
     {
         public DbSet<Internship> Internships { get; set; }
         public DbSet<Comment> Comments { get; set; }
+        public DbSet<DiaryTemplate> DiaryTemplates { get; set; }
 
         public ApplicationDbContext(DbContextOptions options) : base(options)
         {

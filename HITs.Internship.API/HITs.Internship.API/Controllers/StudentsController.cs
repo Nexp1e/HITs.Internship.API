@@ -17,7 +17,7 @@ namespace HITs.Internship.API.Controllers
         private readonly UsersService _usersService;
         private readonly ApplicationDbContext _context;
         private int UserId => (int)HttpContext.Items["userId"];
-        private string Authority => (string)HttpContext.Items["authority"];
+        private string currUserToken => HttpContext.Request.Headers["Authorization"].FirstOrDefault()?.Split(" ").Last();
 
         public StudentsController(UsersService usersService, 
             ApplicationDbContext context)
@@ -38,7 +38,8 @@ namespace HITs.Internship.API.Controllers
         public async Task<IActionResult> GetStudentInternshipsHistory(int studentId)
         {
             List<string> AllowedAuthorities = new() { "ADMIN", "STUDENT" };
-            if (!AllowedAuthorities.Contains(Authority))
+            List<string> userAuthorities = await _usersService.GetUserAuthorities(currUserToken);
+            if (!userAuthorities.Any(x => AllowedAuthorities.Any(y => y == x)))
             {
                 return Forbid();
             }
@@ -49,7 +50,7 @@ namespace HITs.Internship.API.Controllers
                 return NotFound(new Response { Message = "Student not found." });
             }
 
-            if (Authority == "STUDENT" && user.Id != UserId)
+            if (userAuthorities.Contains("STUDENT") && user.Id != UserId)
             {
                 return Forbid();
             }
@@ -78,7 +79,8 @@ namespace HITs.Internship.API.Controllers
         public async Task<IActionResult> GetCurrentInternshipInfo(int studentId)
         {
             List<string> AllowedAuthorities = new() { "ADMIN", "STUDENT" };
-            if (!AllowedAuthorities.Contains(Authority))
+            List<string> userAuthorities = await _usersService.GetUserAuthorities(currUserToken);
+            if (!userAuthorities.Any(x => AllowedAuthorities.Any(y => y == x)))
             {
                 return Forbid();
             }
@@ -89,7 +91,7 @@ namespace HITs.Internship.API.Controllers
                 return NotFound(new Response { Message = "Student not found." });
             }
 
-            if (Authority == "STUDENT" && user.Id != UserId)
+            if (userAuthorities.Contains("STUDENT") && user.Id != UserId)
             {
                 return Forbid();
             }

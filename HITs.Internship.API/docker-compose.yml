@@ -2,31 +2,8 @@ version: '3.4'
 
 networks:
   internship-network:
-  users-service:
-    name: proc-users-main_users-network
-    external: true
 
 services:
-  internship_service:
-    image: ${DOCKER_REGISTRY-}hitsinternshipapi
-    container_name: internship_service
-    depends_on:
-      - "internship_postgre"
-    ports:
-      - 32228:80
-    build:
-      context: .
-      dockerfile: HITs.Internship.API/Dockerfile
-    environment:
-      - ConnectionString=Host=internship_postgre;port=5432;Database=internship-db;Username=postgres;Password=1;
-      - AdminLogin=ADMIN
-      - AdminPassword=ADMIN
-      - UsersServiceBaseUrl=http://172.21.0.3:8081/api/v1/
-    networks:
-      - internship-network
-      - users-service
-            
-
   internship_postgre:
     image: postgres:latest
     container_name: internship_postgre
@@ -34,14 +11,45 @@ services:
       - POSTGRES_USER=postgres
       - POSTGRES_PASSWORD=1
       - POSTGRES_DB=internship-db
-#    ports:
-#      - "5432:5432"
+    ports:
+      - "54321:5432"
     restart: always
     volumes:
       - internship_data:/var/lib/postgresql/data/ 
     networks:
       - internship-network
-        
+  internship_service:
+    image: nexp1e/hitsinternshipapi:1.3-test4
+    container_name: internship_service
+    depends_on:
+      - "internship_postgre"
+    ports:
+      - 32228:80
+    environment:
+      - ConnectionString=Host=internship_postgre;port=5432;Database=internship-db;Username=postgres;Password=1;
+      - AdminLogin=ADMIN
+      - AdminPassword=ADMIN
+      - UsersServiceBaseUrl=http://localhost:8081/api/v1/
+    networks:
+      - internship-network
+  hits.internship.api:
+    image: ${DOCKER_REGISTRY-}hitsinternshipapi
+    build:
+      context: .
+      dockerfile: HITs.Internship.API/Dockerfile
+    container_name: internship_service228
+    depends_on:
+      - "internship_postgre"
+    ports:
+      - 32229:80
+    environment:
+      - ConnectionString=Host=internship_postgre;port=5432;Database=internship-db;Username=postgres;Password=1;
+      - AdminLogin=ADMIN
+      - AdminPassword=ADMIN
+      - UsersServiceBaseUrl=http://localhost:8081/api/v1/
+    networks:
+      - internship-network
 
 volumes:
   internship_data:
+

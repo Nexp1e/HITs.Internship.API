@@ -69,7 +69,6 @@ app.UseCors(x => x
     .AllowAnyMethod()
     .AllowAnyHeader());
 
-app.UseHttpsRedirection();
 app.UseStaticFiles();
 
 app.UseRouting();

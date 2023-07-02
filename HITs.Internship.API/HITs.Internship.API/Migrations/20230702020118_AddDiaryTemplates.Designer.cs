@@ -3,6 +3,7 @@ using System;
 using HITs.Internship.API.Data;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore.Infrastructure;
+using Microsoft.EntityFrameworkCore.Migrations;
 using Microsoft.EntityFrameworkCore.Storage.ValueConversion;
 using Npgsql.EntityFrameworkCore.PostgreSQL.Metadata;
 
@@ -11,9 +12,11 @@ using Npgsql.EntityFrameworkCore.PostgreSQL.Metadata;
 namespace HITs.Internship.API.Migrations
 {
     [DbContext(typeof(ApplicationDbContext))]
-    partial class ApplicationDbContextModelSnapshot : ModelSnapshot
+    [Migration("20230702020118_AddDiaryTemplates")]
+    partial class AddDiaryTemplates
     {
-        protected override void BuildModel(ModelBuilder modelBuilder)
+        /// <inheritdoc />
+        protected override void BuildTargetModel(ModelBuilder modelBuilder)
         {
 #pragma warning disable 612, 618
             modelBuilder
@@ -65,10 +68,6 @@ namespace HITs.Internship.API.Migrations
                     b.Property<byte[]>("File")
                         .IsRequired()
                         .HasColumnType("bytea");
-
-                    b.Property<string>("Order")
-                        .IsRequired()
-                        .HasColumnType("text");
 
                     b.HasKey("Semester");
 

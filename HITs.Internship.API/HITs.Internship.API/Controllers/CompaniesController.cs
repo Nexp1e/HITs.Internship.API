@@ -19,7 +19,8 @@ namespace HITs.Internship.API.Controllers
         private readonly UsersService _usersService;
         private readonly ApplicationDbContext _context;
         private int UserId => (int)HttpContext.Items["userId"];
-        private string Authority => (string)HttpContext.Items["authority"];
+
+        private string currUserToken => HttpContext.Request.Headers["Authorization"].FirstOrDefault()?.Split(" ").Last();
 
         public CompaniesController(UsersService usersService, 
             ApplicationDbContext context)
@@ -39,6 +40,8 @@ namespace HITs.Internship.API.Controllers
         [Authorize]
         public async Task<IActionResult> GetCompanyInfo(int companyId)
         {
+            List<string> userAuthorities = await _usersService.GetUserAuthorities(currUserToken);
+           
             var company = await _usersService.GetCompanyById(companyId);
             if (company == null)
             {
@@ -47,8 +50,16 @@ namespace HITs.Internship.API.Controllers
 
             var interns = new List<InternshipPreview>();
 
-            List<string> AllowedAuthorities = new() { "ADMIN", "REPRESENTATIVE" };
-            if (AllowedAuthorities.Contains(Authority))
+            if ((userAuthorities.Contains("REPRESENTATIVE") && company.Representative?.Id != UserId) ||
+                (userAuthorities.Contains("SUPERVISOR") && company.Supervisor?.Id != UserId))
+            {
+                Console.WriteLine("User is not a representative/supervisor of the company of internship.");
+                return Forbid();
+            }
+
+            if ((userAuthorities.Contains("REPRESENTATIVE") && company.Representative.Id == UserId) ||
+                (userAuthorities.Contains("SUPERVISOR") && company.Supervisor?.Id != UserId) ||
+                userAuthorities.Contains("ADMIN"))
             {
                 var internships = await _context.Internships.Where(x => x.CompanyId == companyId).ToListAsync();
 
@@ -81,8 +92,9 @@ namespace HITs.Internship.API.Controllers
         public async Task<IActionResult> AddInternToCompany([FromRoute]int companyId,
             [FromBody] AddInternToCompanyModel model)
         {
-            List<string> AllowedAuthorities = new() { "ADMIN", "REPRESENTATIVE" };
-            if (!AllowedAuthorities.Contains(Authority))
+            List<string> AllowedAuthorities = new() { "ADMIN", "SUPERVISOR", "REPRESENTATIVE" };
+            List<string> userAuthorities = await _usersService.GetUserAuthorities(currUserToken);
+            if (!userAuthorities.Any(x => AllowedAuthorities.Any(y => y == x)))
             {
                 return Forbid();
             }
@@ -93,8 +105,10 @@ namespace HITs.Internship.API.Controllers
                 return NotFound(new Response {Message = "Company not found."});
             }
 
-            if (Authority == "REPRESENTATIVE" && company.Representative.Id != UserId)
+            if ((userAuthorities.Contains("REPRESENTATIVE") && company.Representative?.Id != UserId) ||
+                (userAuthorities.Contains("SUPERVISOR") && company.Supervisor?.Id != UserId))
             {
+                Console.WriteLine("User is not a representative/supervisor of the company of internship.");
                 return Forbid();
             }
 
@@ -141,8 +155,9 @@ namespace HITs.Internship.API.Controllers
         [Authorize]
         public async Task<IActionResult> RemoveInternFromCompany(int companyId, int internshipId)
         {
-            List<string> AllowedAuthorities = new() { "ADMIN", "REPRESENTATIVE" };
-            if (!AllowedAuthorities.Contains(Authority))
+            List<string> AllowedAuthorities = new() { "ADMIN", "SUPERVISOR", "REPRESENTATIVE" };
+            List<string> userAuthorities = await _usersService.GetUserAuthorities(currUserToken);
+            if (!userAuthorities.Any(x => AllowedAuthorities.Any(y => y == x)))
             {
                 return Forbid();
             }
@@ -153,8 +168,10 @@ namespace HITs.Internship.API.Controllers
                 return NotFound(new Response { Message = "Company not found." });
             }
 
-            if (Authority == "REPRESENTATIVE" && company.Representative.Id != UserId)
+            if ((userAuthorities.Contains("REPRESENTATIVE") && company.Representative?.Id != UserId) ||
+                (userAuthorities.Contains("SUPERVISOR") && company.Supervisor?.Id != UserId))
             {
+                Console.WriteLine("User is not a representative/supervisor of the company of internship.");
                 return Forbid();
             }
 

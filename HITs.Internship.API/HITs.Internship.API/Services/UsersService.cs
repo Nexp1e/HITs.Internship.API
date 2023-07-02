@@ -144,5 +144,25 @@ namespace HITs.Internship.API.Services
                 _client.DefaultRequestHeaders.Remove("Auth");
             }
         }
+
+        public async Task<List<string>> GetUserAuthorities(string userToken)
+        {
+            _client.DefaultRequestHeaders.Add("Auth", userToken);
+
+            try
+            {
+                var authorities = await _client.GetFromJsonAsync<List<string>>("users/roles");
+                return authorities;
+            }
+            catch (HttpRequestException ex)
+            {
+                Console.WriteLine(ex);
+                throw;
+            }
+            finally
+            {
+                _client.DefaultRequestHeaders.Remove("Auth");
+            }
+        }
     }
 }

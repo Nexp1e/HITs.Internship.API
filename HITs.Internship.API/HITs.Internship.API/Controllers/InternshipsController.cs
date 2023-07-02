@@ -20,7 +20,7 @@ namespace HITs.Internship.API.Controllers
         private readonly UsersService _usersService;
         private readonly ApplicationDbContext _context;
         private int UserId => (int)HttpContext.Items["userId"];
-        private string Authority => (string)HttpContext.Items["authority"];
+        private string currUserToken => HttpContext.Request.Headers["Authorization"].FirstOrDefault()?.Split(" ").Last();
 
         public InternshipsController(UsersService usersService, 
             ApplicationDbContext context)
@@ -29,35 +29,15 @@ namespace HITs.Internship.API.Controllers
             _context = context;
         }
 
-        //[HttpGet("test")]
-        //public async Task<IActionResult> Test()
-        //{
-        //    var token = await _usersService.GetAdminToken();
-
-        //    return Ok(new TokenDto{ Token = token });
-        //}
-
-        //[HttpGet("authTest")]
-        //[Swagger.Authorize]
-        //public IActionResult AuthTest()
-        //{
-        //    return Ok(new { userId = UserId, authority = Authority });
-        //}
-
-        
-        /// <summary>
-        /// Детали о стажировке. Могут быть получены студентом или куратором, с которыми связана стажировка, или админом.
-        /// </summary>
-        /// <param name="id">Id стажировки</param>
-        /// <returns>Подробные данные о стажировке</returns>
         [HttpGet("{id:int}/details")]
         [Authorize]
         [ProducesResponseType(StatusCodes.Status200OK, Type = typeof(InternshipModel))]
         [ProducesResponseType(StatusCodes.Status404NotFound, Type = typeof(Response))]
         public async Task<IActionResult> GetInternshipInfo(int id)
         {
-            List<string> AllowedAuthorities = new() { "ADMIN", "REPRESENTATIVE", "STUDENT" };
-            if (!AllowedAuthorities.Contains(Authority))
+            List<string> AllowedAuthorities = new() { "ADMIN", "REPRESENTATIVE", "SUPERVISOR", "STUDENT" };
+            List<string> userAuthorities = await _usersService.GetUserAuthorities(currUserToken);
+            if (!userAuthorities.Any(x => AllowedAuthorities.Any(y => y == x)))
             {
                 return Forbid();
             }
@@ -67,6 +47,7 @@ namespace HITs.Internship.API.Controllers
                 .FirstOrDefaultAsync(x => x.Id == id);
             if (internship == null)
             {
+                Console.WriteLine("Internship data not found.");
                 return NotFound(new Response { Message = "Internship data not found." });
             }
 
@@ -76,13 +57,16 @@ namespace HITs.Internship.API.Controllers
                 return NotFound(new Response { Message = "Company not found." });
             }
 
-            if (Authority == "REPRESENTATIVE" && company.Representative.Id != UserId)
+            if ((userAuthorities.Contains("REPRESENTATIVE") && company.Representative?.Id != UserId) || 
+                (userAuthorities.Contains("SUPERVISOR") && company.Supervisor?.Id != UserId))
             {
+                Console.WriteLine("User is not a representative/supervisor of the company of internship.");
                 return Forbid();
             }
 
-            if (Authority == "STUDENT" && internship.InternId != UserId)
+            if (userAuthorities.Contains("STUDENT") && internship.InternId != UserId)
             {
+                Console.WriteLine("Student is not part of the internship record.");
                 return Forbid();
             }
 
@@ -106,8 +90,9 @@ namespace HITs.Internship.API.Controllers
         [ProducesResponseType(StatusCodes.Status404NotFound, Type = typeof(Response))]
         public async Task<IActionResult> SetInternshipMark(int id, EditMarkModel model)
         {
-            List<string> AllowedAuthorities = new() { "ADMIN", "REPRESENTATIVE", "STUDENT" };
-            if (!AllowedAuthorities.Contains(Authority))
+            List<string> AllowedAuthorities = new() { "ADMIN", "SUPERVISOR", "STUDENT" };
+            List<string> userAuthorities = await _usersService.GetUserAuthorities(currUserToken);
+            if (!userAuthorities.Any(x => AllowedAuthorities.Any(y => y == x)))
             {
                 return Forbid();
             }
@@ -126,8 +111,10 @@ namespace HITs.Internship.API.Controllers
                 return NotFound(new Response { Message = "Company not found." });
             }
 
-            if (Authority == "REPRESENTATIVE" && company.Representative.Id != UserId)
+            if ((userAuthorities.Contains("REPRESENTATIVE") && company.Representative?.Id != UserId) ||
+                (userAuthorities.Contains("SUPERVISOR") && company.Supervisor?.Id != UserId))
             {
+                Console.WriteLine("User is not a representative/supervisor of the company of internship.");
                 return Forbid();
             }
 
@@ -154,8 +141,9 @@ namespace HITs.Internship.API.Controllers
         [ProducesResponseType(StatusCodes.Status404NotFound, Type = typeof(Response))]
         public async Task<IActionResult> SetInternshipCharacteristic(int id, EditCharacteristicModel model)
         {
-            List<string> AllowedAuthorities = new() { "ADMIN", "REPRESENTATIVE", "STUDENT" };
-            if (!AllowedAuthorities.Contains(Authority))
+            List<string> AllowedAuthorities = new() { "ADMIN", "SUPERVISOR", "STUDENT" };
+            List<string> userAuthorities = await _usersService.GetUserAuthorities(currUserToken);
+            if (!userAuthorities.Any(x => AllowedAuthorities.Any(y => y == x)))
             {
                 return Forbid();
             }
@@ -174,8 +162,10 @@ namespace HITs.Internship.API.Controllers
                 return NotFound(new Response { Message = "Company not found." });
             }
 
-            if (Authority == "REPRESENTATIVE" && company.Representative.Id != UserId)
+            if ((userAuthorities.Contains("REPRESENTATIVE") && company.Representative?.Id != UserId) ||
+                (userAuthorities.Contains("SUPERVISOR") && company.Supervisor?.Id != UserId))
             {
+                Console.WriteLine("User is not a representative/supervisor of the company of internship.");
                 return Forbid();
             }
 
@@ -199,10 +189,12 @@ namespace HITs.Internship.API.Controllers
         [HttpPatch("{id:int}/diary")]
         [Authorize]
         [ProducesResponseType(StatusCodes.Status404NotFound, Type = typeof(Response))]
+        [Consumes("multipart/form-data")]
         public async Task<IActionResult> UploadInternshipDiary(int id, IFormFile diary)
         {
-            List<string> AllowedAuthorities = new() { "ADMIN", "REPRESENTATIVE", "STUDENT" };
-            if (!AllowedAuthorities.Contains(Authority))
+            List<string> AllowedAuthorities = new() { "ADMIN", "SUPERVISOR", "STUDENT" };
+            List<string> userAuthorities = await _usersService.GetUserAuthorities(currUserToken);
+            if (!userAuthorities.Any(x => AllowedAuthorities.Any(y => y == x)))
             {
                 return Forbid();
             }
@@ -221,12 +213,12 @@ namespace HITs.Internship.API.Controllers
                 return NotFound(new Response { Message = "Company not found." });
             }
 
-            if (Authority == "REPRESENTATIVE" && company.Representative.Id != UserId)
+            if (userAuthorities.Contains("REPRESENTATIVE") && company.Representative?.Id != UserId)
             {
                 return Forbid();
             }
 
-            if (Authority == "STUDENT" && internship.InternId != UserId)
+            if (userAuthorities.Contains("STUDENT") && internship.InternId != UserId)
             {
                 return Forbid();
             }
@@ -254,8 +246,9 @@ namespace HITs.Internship.API.Controllers
         [Authorize]
         public async Task<IActionResult> CommentOnDiary(int id, PostDiaryCommentModel model)
         {
-            List<string> AllowedAuthorities = new() { "REPRESENTATIVE", "STUDENT" };
-            if (!AllowedAuthorities.Contains(Authority))
+            List<string> AllowedAuthorities = new() { "ADMIN", "SUPERVISOR", "STUDENT" };
+            List<string> userAuthorities = await _usersService.GetUserAuthorities(currUserToken);
+            if (!userAuthorities.Any(x => AllowedAuthorities.Any(y => y == x)))
             {
                 return Forbid();
             }
@@ -274,12 +267,14 @@ namespace HITs.Internship.API.Controllers
                 return NotFound(new Response { Message = "Company not found." });
             }
 
-            if (Authority == "REPRESENTATIVE" && company.Representative.Id != UserId)
+            if ((userAuthorities.Contains("REPRESENTATIVE") && company.Representative?.Id != UserId) ||
+                (userAuthorities.Contains("SUPERVISOR") && company.Supervisor?.Id != UserId))
             {
+                Console.WriteLine("User is not a representative/supervisor of the company of internship.");
                 return Forbid();
             }
 
-            if (Authority == "STUDENT" && internship.InternId != UserId)
+            if (userAuthorities.Contains("STUDENT") && internship.InternId != UserId)
             {
                 return Forbid();
             }
@@ -289,7 +284,7 @@ namespace HITs.Internship.API.Controllers
             {
                 AuthorId = user.Id,
                 AuthorName = user.GetFullName(),
-                CreatedAt = DateTime.Now,
+                CreatedAt = DateTime.UtcNow,
                 InternshipId = internship.Id,
                 Text = model.Text
             };
